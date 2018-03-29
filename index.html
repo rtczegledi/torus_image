@@ -1,0 +1,793 @@
+<html>
+<head>
+  <title>Image Generator</title>
+  <script type="text/javascript">
+
+//////////////////////////////////////////////////////
+//
+// Author:      Richard Czegledi
+// Date:        March 29, 2018
+
+var g_Debug = false;
+
+var ALIGNMENT = { LEFT:0, CENTER:1, RIGHT:2, AUTO:3 };
+
+var OBJECT_TYPE = { TITLE:0, MEMBER:1, MASTER:2, RECIPIENT:3};
+
+// NOTE: font description MUST include the font height in 'px'.
+var g_RecipientFontDesc = { 
+    fontFamily:         "Arial",
+    fontWeight:         "bold",
+    fontStyle:          "normal",
+    fontSize:           "14px",
+
+    textColor:          "blue",
+    debugColor:         "green",
+
+    torusColor:         "purple",       // extra color attribute for torus
+    torusPegColor:      "blue",         // extra color attribute for torus peg
+    imageColor:         "white",        // extra color attribute for image
+    titleGroupColor:    "orange"        // extra color attribute to title group
+};
+
+var g_TitleFontDesc = { 
+    fontFamily:         "Arial",
+    fontWeight:         "bold",
+    fontStyle:          "normal",
+    fontSize:           "16px",
+
+    textColor:          "Navy",
+    debugColor:         "green"
+};
+
+var g_MemberFontDesc = { 
+    fontFamily:         "Arial",
+    fontWeight:         "bold",
+    fontStyle:          "normal",
+    fontSize:           "14px",
+
+    textColor:          "black",
+    debugColor:         "green"
+};
+
+var g_MasterFontDesc = { 
+    fontFamily:         "Arial",
+    fontWeight:         "bold",
+    fontStyle:          "italic",
+    fontSize:           "14px",
+
+    textColor:          "red",
+    debugColor:         "green"
+};
+
+var g_MastersList = [
+    "",
+
+    // Ascended Masters
+    "Mary Magdalene",               "Jesus",                "St Germain",
+    "El Morya",                     "Dom Ignacio",          "Lady Nada",
+    "Lao Tze",                      "Paul The Venetian",    "Melchizedek",
+    "Maha Chohan",                  "Kuan Yin",             "Hilarion",
+    "Kuthumi",                      "Lord Lanto",           "Pallas Athena",
+    "Mother Mary",                  "Isis",                 "Serapis Bey",
+    "St John, the Baptist",         "Eros",                 "Ma'at",
+    "Amen Bey",                     "Ptah",                 "Thomas Merton",
+    "Portia",                       "Anubis",               "Quetzalcoatl",
+    "Freya",                        "Moses",                "Vesta",
+    "Chananda",                     "Yogananda",            "Gautama Buddha",
+    "Maitreya",                     "Cha Ara",              "Hinenuitepo",
+    "St Anthony of Padua",          "Pele",
+
+    // Archangels
+    "AA Michael",                   "AA Charity",           "AA Uzziel",
+    "AA Christine",                 "AA Jophiel",           "AA Hope",
+    "AA Chamuel",                   "AA Faith",             "AA Gabriel",
+    "AA Raphael",                   "AA Ariel",             "AA Aurora",
+    "AA Uriel",                     "AA Amethyst",          "AA Zadkiel",
+
+    // Cosmic Masters
+    "White Tara",                   "Ganesh",               "Sanat Kumara",
+    "Susan'oo",                     "Ra-mun",               "Vishnu",
+    "Helios",                       "Shiva",                "Osiris",
+    "Ares",                         "Metatron",             "Sitatapatra",
+    "Krishna",                      "Amaryllis",            "Hathor",
+    "Inanna",                       "Amaterasu",            "Omri Tas",
+    "Lakshmi",
+
+    // Elohim
+    "Amazonia",                     "Hercules",             "Apollo",
+    "Lumina",                       "Heros",                "Amora",
+    "Purity",                       "Cyclopea",             "Virginia",
+    "Astrea",                       "Cassiopea",            "Peace",
+    "Aloha",                        "Arcturus",             "Victoria",
+    "Elohim of the 8th ray" ];
+    
+
+// Object to define origin within canvas.
+var g_Origin = {
+    // Center X,Y coordinates of center circle.
+    imageWidth:                 600,
+    imageHeight:                600,
+
+    imageCenterX:               300,            // imageWidth/2
+    imageCenterY:               300,            // imageHeight/2
+
+    torusRingSize:              100,            // initial size of torus ring
+    torusRingWidth:             3,              // px for the torus ring
+    torusRingSpacing:           6,              // px spacign abound torus ring
+    torusRingMemberSpacing:     9,              // px spacing from torus ring to member names
+    torusRingMasterSpacing:     75,             // px spacing from torus ring to master names
+
+    torusRingPegSize:           6,              // px size of pegs on torus ring
+
+    memberSpacing:              5,              // px spacing around member names
+    masterSpacing:              5,              // px spacing around master names
+
+    memberStartAngle:           90,             // initial angle for member name
+
+    cropSpacing:                5,              // px spacing from entire image to border
+
+    titleSpacing:               20,             // px spacing from title to any member/master name
+
+    maxMembers:                 10,             // maximum number of members supported
+
+
+
+    absXY : function( relX, relY ) {
+        return { x: Math.round( this.imageCenterX + relX ),
+                 y: Math.round( this.imageCenterY + relY ) };
+    },
+
+    polarToAbsXY : function( radius, angle ) {
+        return this.absXY( radius * Math.cos( angle * Math.PI / 180 ),
+                           radius * Math.sin( angle * Math.PI / 180 ) );
+    },
+
+    resetImageCenter : function() {
+        this.imageCenterX = this.imageWidth / 2;
+        this.imageCenterY = this.imageHeight / 2;
+    },
+
+    setImageCenter : function( x, y ) {
+        this.imageCenterX = x;
+        this.imageCenterY = y;
+    } 
+};
+
+var g_Title = [];
+var g_Members = [];
+var g_ObjectArray = [];
+
+
+
+function $(id) {
+    return document.getElementById(id);
+}
+
+
+function massageName( name ) {
+    var arr = [];
+
+    // TODO possibly split the name across lines
+    arr.push( {text:myTrim(name)} );
+    return arr;
+}
+
+function createSeatingArrangement() {
+    var memberAngle = g_Origin.memberStartAngle;
+    var step = 360 / g_Members.length;
+    var masterAngle = memberAngle - step/2;
+    var radiusStep = 5;
+    var memberRadius = g_Origin.torusRingSize + g_Origin.torusRingMemberSpacing;
+    var masterRadius = g_Origin.torusRingSize + g_Origin.torusRingMasterSpacing;
+    var titleRadius = masterRadius + g_Origin.titleSpacing;
+    var maxRadius = g_Origin.imageCenterY;
+    var obj;
+    var result = "";
+
+    // Create the center object.
+    obj = createTextObject( OBJECT_TYPE.RECIPIENT,
+                            massageName( $("recipient").value ),
+                            $("canvas"), 
+                            g_RecipientFontDesc, 
+                            ALIGNMENT.CENTER, 
+                            g_Origin, 
+                            0,      // radius
+                            0,      // angle
+                            g_Origin.torusRingSpacing );
+    obj.setBoundingRadius( g_Origin.torusRingSize );
+    g_ObjectArray.push( obj );
+
+    // Create the member objects
+    for( var i = 0; i < g_Members.length; ++i ) {
+        obj = createTextObject( OBJECT_TYPE.MEMBER,
+                                massageName( g_Members[i].member ),
+                                $("canvas"), 
+                                g_MemberFontDesc, 
+                                ALIGNMENT.AUTO, 
+                                g_Origin, 
+                                memberRadius,
+                                memberAngle,
+                                g_Origin.memberSpacing );
+        g_ObjectArray.push( obj );
+        memberAngle += step;
+
+        // Attempt to place the member.
+        for( var r = memberRadius; r < maxRadius; r += radiusStep ) {
+            obj.setRadius( r );
+            result = testOverlap();
+            if( result == null ) {
+                break;
+            }
+        }
+
+        if( result != null ) {
+            // Return the member placement error.
+            return result;
+        }
+    }
+
+    // Create the master objects
+    for( var i = 0; i < g_Members.length; ++i ) {
+        if( g_Members[i].master !== "" ) {
+            obj = createTextObject( OBJECT_TYPE.MASTER,
+                                    massageName( g_Members[i].master ),
+                                    $("canvas"), 
+                                    g_MasterFontDesc, 
+                                    ALIGNMENT.AUTO, 
+                                    g_Origin, 
+                                    masterRadius,
+                                    masterAngle,
+                                    g_Origin.masterSpacing );
+            g_ObjectArray.push( obj );
+        }
+        masterAngle += step;
+
+        // Attempt to place the master.
+        for( var r = masterRadius; r < maxRadius; r += radiusStep ) {
+            obj.setRadius( r );
+            result = testOverlap();
+            if( result == null ) {
+                break;
+            }
+        }
+
+        if( result != null ) {
+            // Return the master placement error.
+            return result;
+        }
+    }
+
+    // Create the title object.
+    var title = [];
+    for( var i = 0; i < g_Title.length; ++i ) {
+        title.push( {text:myTrim(g_Title[i])} );
+    }
+    if( $("title_group").value !== "" ) {
+        title.push( {text:myTrim($("title_group").value), 
+                     color:g_RecipientFontDesc.titleGroupColor } );
+    }
+
+    obj = createTextObject( OBJECT_TYPE.TITLE,
+                            title,
+                            $("canvas"), 
+                            g_TitleFontDesc, 
+                            ALIGNMENT.CENTER, 
+                            g_Origin, 
+                            titleRadius,
+                            270,                    // angle
+                            g_Origin.titleSpacing  );
+    g_ObjectArray.push( obj );
+
+    // Attempt to place the title.
+    for( var r = titleRadius; r < maxRadius; r += radiusStep ) {
+        obj.setRadius( r );
+        result = testOverlap();
+        if( result == null ) {
+            break;
+        }
+    }
+
+    return result;
+}
+
+function drawSeatingArrangement() {
+    var     minX = maxX = g_Origin.imageCenterX;
+    var     minY = maxY = g_Origin.imageCenterY;
+
+    // Restore the canvas to configured dimensions.
+    $("canvas").width = g_Origin.imageWidth;
+    $("canvas").height = g_Origin.imageHeight;
+    
+    // Compute the image dimensions for cropping.
+    if( g_ObjectArray.length > 0 ) {
+        var obj = g_ObjectArray[0];
+        var maxRadius = obj.origin.torusRingWidth + obj.spacing;
+
+        minX = Math.min( minX, obj.centerX() - maxRadius );
+        maxX = Math.max( maxX, obj.centerX() + maxRadius );
+
+        minY = Math.min( minY, obj.centerY() - maxRadius );
+        maxY = Math.min( maxY, obj.centerY() + maxRadius );
+
+        for( var i = 0; i < g_ObjectArray.length; ++i ) {
+            var obj = g_ObjectArray[i];
+
+            minX = Math.min( minX, obj.left() );
+            maxX = Math.max( maxX, obj.right() );
+
+            minY = Math.min( minY, obj.top() );
+            maxY = Math.max( maxY, obj.bottom() );
+        }
+    }
+
+    minX = Math.max( minX - g_Origin.cropSpacing, 0 );
+    minY = Math.max( minY - g_Origin.cropSpacing, 0 );
+
+    maxX = Math.min( maxX + g_Origin.cropSpacing, g_Origin.imageWidth );
+    maxY = Math.min( maxY + g_Origin.cropSpacing, g_Origin.imageHeight );
+
+    // Resize and fill the canvas
+    var newWidth = maxX-minX;
+    var newHeight = maxY-minY;
+    $("canvas").width = newWidth;
+    $("canvas").height = newHeight;
+    var context = $("canvas").getContext("2d");
+    context.fillStyle = g_RecipientFontDesc.imageColor;
+    context.fillRect( 0, 0, newWidth, newHeight );
+    
+    // Alter the image 'center' before the redraw.
+    g_Origin.setImageCenter( g_ObjectArray[0].centerX() - minX,
+                             g_ObjectArray[0].centerY() - minY );
+
+    // Draw all the objects.
+    for( var i = 0; i < g_ObjectArray.length; ++i ) {
+        var obj     = g_ObjectArray[i];
+
+        obj.draw();
+
+        if( i == 0 ) {
+            // Draw the torus
+            obj.drawCircle( obj.fontDesc.torusColor, obj.origin.torusRingWidth, 0 );
+
+            // Draw the pegs
+            for( var j = 0; j < g_ObjectArray.length; ++j ) {
+                var pegObj = g_ObjectArray[j];
+
+                if( pegObj.objectType == OBJECT_TYPE.MEMBER ) {
+                    var theta = pegObj.angle * Math.PI / 180;
+                    var torusRadius = obj.boundingRadius;
+                    var pegX = obj.origin.imageCenterX + torusRadius * Math.cos( theta );
+                    var pegY = obj.origin.imageCenterY + torusRadius * Math.sin( theta );
+
+                    context.strokeStyle = obj.origin.torusPegColor;
+                    context.lineWidth = 1;
+                    context.beginPath();
+                    context.arc( pegX, pegY, obj.origin.torusRingPegSize, 0, 2*Math.PI );
+                    context.fillStyle = obj.origin.torusPegColor;
+                    context.fill();
+                    context.closePath();
+                    context.stroke();
+                }
+            }
+        } else {
+            if( g_Debug ) {
+                obj.debugBoundingBox( obj.spacing );
+            }
+        }
+
+        if( g_Debug ) {
+            obj.drawCircle( obj.fontDesc.DebugColor, 1, 0 );
+            obj.drawCircle( obj.fontDesc.DebugColor, 1, obj.spacing );
+
+            obj.debugBoundingBox( 0 );
+        }
+    }
+}
+
+function resetGlobals() {
+    g_Title = [];
+    g_Members = [];
+    g_ObjectArray = [];
+    g_Origin.resetImageCenter();
+}
+
+function buildCanvas() {
+    resetGlobals();
+    g_Debug = $("debug").checked;
+
+    g_RecipientFontDesc.imageColor = g_Debug ? "yellow" : "white";
+
+    if( $("title_1").value !== "" )   g_Title.push( $("title_1").value );
+    if( $("title_2").value !== "" )   g_Title.push( $("title_2").value );
+
+    for( var i = 0; i < g_Origin.maxMembers; ++i ) {
+        var member = $("member" + i).value;
+        var master = $("master" + i).value;
+
+        if( member !== "" ) {
+            g_Members.push( {member:member, master:master} );
+        }
+    }
+
+    setDefaultFilename();
+
+    g_Origin.memberStartAngle = parseInt( $("orientation").value );
+    var result = createSeatingArrangement();
+    if( result == null ) {
+        $("error").innerHTML = "";
+        drawSeatingArrangement();
+    } else {
+        $("error").innerHTML = result;
+    }
+}
+
+function testOverlap() {
+    for( var i = 1; i < g_ObjectArray.length; ++i ) {
+        var obj = g_ObjectArray[i];
+
+        if( obj.intersectsCircle( g_ObjectArray[0] ) ) {
+            return "object '" + obj.getName() + "' intersects torus ring";
+        }
+    }
+    
+    for( var i = 0; i < g_ObjectArray.length; ++i ) {
+        var obj = g_ObjectArray[i];
+        if( obj.exceedsImageBoundary() ) {
+            return "object '" + obj.getName() + "' exceeds image boundary";
+        }
+
+        for( var j = i+1; j < g_ObjectArray.length; ++j ) {
+            var outerObj = g_ObjectArray[j];
+            if( obj.intersectsBoundingBox( outerObj ) ) {
+                return "object '" + obj.getName() + "' intersects with '" 
+                        + outerObj.getName() + "'";
+            }
+        }
+    }
+
+    return null;    // no intersection
+}
+
+function distance( x1, y1, x2, y2 ) {
+    return Math.sqrt( Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2) );
+}
+
+function myTrim( str ) {
+    return str.replace(/^\s+|\s+$/g,"");
+}
+
+function createTextObject( objectType,
+                           textArray, 
+                           canvas, 
+                           fontDesc, 
+                           alignment, 
+                           origin, 
+                           radius, 
+                           angle, 
+                           spacing ) {
+    var obj = {};
+    obj.objectType = objectType;
+    obj.textArray = textArray;
+    obj.canvas = canvas;
+    obj.fontDesc = fontDesc;
+    obj.alignment = alignment;
+    obj.origin = origin;
+    obj.radius = radius;
+    obj.angle = angle % 360;
+    obj.spacing = spacing;
+
+    obj.font = fontDesc.fontStyle + " "
+             + fontDesc.fontWeight + " " 
+             + fontDesc.fontSize + " " 
+             + fontDesc.fontFamily;
+    obj.context = obj.canvas.getContext("2d");
+    obj.context.font = obj.font;
+
+    obj.line = [];
+    var maxWidth = 0;
+    for( var i = 0; i < textArray.length; ++i ) {
+        var width = Math.round( obj.context.measureText( textArray[i].text ).width );
+        obj.line.push( {'text':myTrim(textArray[i].text),
+                        'width':width,
+                        'color':textArray[i].color} );
+        if( width > maxWidth ) maxWidth = width;
+    }
+
+    obj.fontHeight = parseInt(fontDesc.fontSize);   // e.g. "14px"
+    obj.boundingWidth = maxWidth;
+    obj.boundingHeight = obj.fontHeight * textArray.length;
+
+    obj.boxCenterX = Math.round( obj.boundingWidth / 2 );
+    obj.boxCenterY = Math.round( obj.boundingHeight / 2 );
+    obj.boundingRadius = distance( 0, 0, obj.boxCenterX, obj.boxCenterY );
+
+
+    obj.toAbsXY = function() {
+        return obj.origin.polarToAbsXY( this.radius, this.angle );
+    };
+
+    obj.centerX = function() {
+        return this.toAbsXY().x;
+    };
+
+    obj.centerY = function() {
+        return this.toAbsXY().y;
+    };
+
+    obj.left = function() {
+        return this.centerX() - this.boxCenterX;
+    };
+
+    obj.top = function() {
+        return this.centerY() - this.boxCenterY;
+    };
+
+    obj.right = function() {
+        return this.left() + this.boundingWidth;
+    };
+
+    obj.bottom = function() {
+        return this.top() + this.boundingHeight;
+    };
+
+    obj.setRadius = function( radius ) {
+        this.radius = radius;
+    };
+
+    obj.setBoundingRadius = function( boundingRadius ) {
+        this.boundingRadius = boundingRadius;
+    };
+
+    obj.getName = function() {
+        var str = "";
+        for( var i = 0; i < this.textArray.length; ++i ) {
+            str = str + " " + this.textArray[i].text;
+        }
+        return myTrim(str);
+    }
+
+    obj.draw = function() {
+        var center = this.toAbsXY();
+        var y = center.y - ((this.line.length - 1)*this.fontHeight) / 2;
+        this.context.textBaseline = "middle";
+        for( var i = 0; i < this.line.length; ++i ) {
+            var line = this.line[i];
+            var x;
+            if( this.alignment == ALIGNMENT.LEFT ) {
+                this.context.textAlign = "left";
+                x = center.x - this.boxCenterX;
+            } else if( this.alignment == ALIGNMENT.CENTER ) {
+                this.context.textAlign = "center";
+                x = center.x;
+            } else if( this.alignment == ALIGNMENT.RIGHT ) {
+                this.context.textAlign = "right";
+                x = center.x + this.boxCenterX;
+            } else {    // assume ALIGNMENT.AUTO
+                // Choose the text alignment based on the angle.
+                if( angle <= 45 || angle >= 315 ) {
+                    this.context.textAlign = "left";
+                    x = center.x - this.boxCenterX;
+                } else if( angle >= 135 && angle <= 225 ) {
+                    this.context.textAlign = "right";
+                    x = center.x + this.boxCenterX;
+                } else {
+                    this.context.textAlign = "center";
+                    x = center.x;
+                }
+            }
+            this.context.fillStyle = this.line[i].color || this.fontDesc.textColor;
+            this.context.font = this.font;
+            this.context.fillText( this.line[i].text, x, y );
+            y = y + this.fontHeight;
+        }
+    };
+
+    obj.drawCircle = function( color, width, spacing ) {
+        var context = this.context;
+
+        context.strokeStyle = color || this.fontDesc.debugColor;
+        context.lineWidth = width;
+        context.beginPath();
+        context.arc( this.centerX(), this.centerY(), this.boundingRadius + spacing + 1, 0, 2*Math.PI );
+        context.closePath();
+        context.stroke();
+    };
+
+    obj.debugBoundingBox = function( spacing ) {
+        var context = this.context;
+        context.strokeStyle = this.fontDesc.debugColor;
+        context.lineWidth = 1;
+        context.beginPath();
+        context.moveTo( this.left()-spacing, this.top()-spacing );
+        context.lineTo( this.right()+spacing, this.top()-spacing );
+        context.lineTo( this.right()+spacing, this.bottom()+spacing );
+        context.lineTo( this.left()-spacing, this.bottom()+spacing );
+        context.closePath();
+        context.stroke();
+    };
+
+    obj.exceedsImageBoundary = function() {
+        return this.left() < 0
+            || this.right() >= obj.origin.imageWidth
+            || this.top() < 0
+            || this.bottom() >= obj.origin.imageHeight;
+    };
+
+    obj.intersectsBoundingBox = function( obj ) {
+        return (this.left()-this.spacing <= obj.right()+obj.spacing)
+            && (obj.left()-obj.spacing   <= this.right()+this.spacing)
+            && (this.top()-this.spacing  <= obj.bottom()+obj.spacing)
+            && (obj.top()-obj.spacing    <= this.bottom()+this.spacing);
+    };
+
+    obj.pointInCircle = function( x, y ) {
+        var dist = distance( this.centerX(), this.centerY(), x, y );
+        return dist < this.boundingRadius + this.spacing;
+    }
+
+    obj.intersectsCircle = function( obj ) {
+        var left = this.left()-this.spacing;
+        var top = this.top()-this.spacing;
+        var right = this.right()+this.spacing;
+        var bottom = this.bottom()+this.spacing;
+
+        return obj.pointInCircle( left, top )
+            || obj.pointInCircle( right, top )
+            || obj.pointInCircle( right, bottom )
+            || obj.pointInCircle( left, bottom );
+    };
+
+    return obj;
+}
+
+function getNumberStringPrefix( num ) {
+    num = num % 10;
+
+    // determine 'st', 'nd', or 'rd', or 'th' prefix
+    if( num == 1 ) {
+        return "st";
+    } else if( num == 2 ) {
+        return "nd";
+    } else if( num == 3 ) {
+        return "rd";
+    } else {
+        return "th";
+    }
+}
+
+function getDateString() {
+    var day = new Date();
+    var monthNames = ["January", "February", "March", "April", "May", "June", 
+                      "July", "August", "September", "October", "November", "December"];
+    var currentMonth = day.getMonth();
+    var str = monthNames[day.getMonth()] + " " + day.getDate() + getNumberStringPrefix( day.getDate() ) + "/";
+
+    // advance to 'tomorrow'
+    day.setTime( day.getTime() + 86400 * 1000 );
+
+    if( currentMonth == day.getMonth() ) {
+        // In current month.
+        return str + day.getDate() + getNumberStringPrefix( day.getDate() );
+    } else {
+        return str + monthNames[day.getMonth()] + " " + day.getDate() + getNumberStringPrefix( day.getDate() );
+    }
+}
+
+function setDefaultFilename() {
+    var day = new Date();
+    var shortMonthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    // NOTE: This may be a bit annoying to create the default filename based on the group title.
+    //       We'll see how it goes.
+    $("imageName").value = $("title_1").value + " - " + 
+                         shortMonthNames[day.getMonth()] + " " + day.getDate() + ", " + day.getFullYear() + ".png";
+
+}
+
+function pageSetup() {
+    // Update the canvas to configured dimensions.
+    $("canvas").width = g_Origin.imageWidth;
+    $("canvas").height = g_Origin.imageHeight;
+
+    // Create the Members/Masters forms.
+    for( var i = 0; i < g_Origin.maxMembers; ++i ) {
+       var element = document.createElement( "div" );
+       var str = "Member <input type='text' name='member' id='member" + i + "' onChange='buildCanvas()'/>" +
+                 " works with <select name=masters id='master" + i + "' onChange='buildCanvas()'>\n";
+
+       g_MastersList.sort();
+       for( var j = 0; j < g_MastersList.length; ++j ) {
+           var name = g_MastersList[j].toUpperCase();
+           str += "<option value=\"" + name + "\">" + name + "</option>\n";
+       }
+       str += "</select>";
+       element.innerHTML = str;
+
+       $("members").appendChild( element );
+    }
+
+    // Populate the date in the title.
+    $("title_2").value = getDateString() + "    Duration: 20 min";
+
+    // Update the "Download image" anchor element to download the canvas as a PNG file.
+    var dl = $("downloadLink");
+    dl.addEventListener( "click", 
+                         function() { 
+                             this.href = canvas.toDataURL("image/png");
+                             var name = $("imageName").value;
+                             if( name === "" ) name = "image.png";
+                             this.download = name;
+                         }, 
+                         false );
+
+    /**** test data
+    $("recipient").value = "testing";
+    $("member0").value = "Sheri";
+    $("member1").value = "Richard";
+    $("member2").value = "Andrew";
+    $("member3").value = "Brad";
+    $("master0").options[1].selected = true;
+    $("master1").options[2].selected = true;
+    $("master2").options[3].selected = true;
+    $("master3").options[4].selected = true;
+    */
+
+    buildCanvas();
+}
+
+//
+//////////////////////////////////////////////////////
+
+  </script>
+</head>
+  <body onLoad=pageSetup()>
+    <table border=0>
+      <tr>
+        <td>
+        <h2>Group Torus Title</h2>
+        <input type='text' name='title_1' id='title_1' size='40' value='Group Torus' onChange='buildCanvas()'/><br>
+        <input type='text' name='title_2' id='title_2' size='40' value='Duration: 20 min' onChange='buildCanvas()'/><br>
+        part (optional) <input type='text' name='title_group' id='title_group' size='20' value='' onChange='buildCanvas()'/><br>
+
+        <h2>Recipient (optional)</h2>
+        <input type='text' name='recipient' id='recipient' size='40' value='' onChange='buildCanvas()'/><br>
+
+        <h2>Members / Masters</h2>
+        Orientation for first member is
+        <select name=orientation id=orientation onChange='buildCanvas()'>
+            <option value=270>North</option>
+            <option value=315>Northeast</option>
+            <option value=0>East</option>
+            <option value=45>Southeast</option>
+            <option value=90>South</option>
+            <option value=135>Southwest</option>
+            <option value=180>West</option>
+            <option value=225>Northwest</option>
+        </select>
+        <br/>
+        <i><b>Members are added to the torus in a clockwise order.  Be careful to
+            ensure that masters are assigned when necessary.</b></i>
+        <br/>
+
+        <div id="members"></div>
+
+        <p id="error"></p>
+        <a id="downloadLink" href="#image">Download</a> image as filename
+        <input type='text' name="name" id="imageName" value="download.png" size="70"/>
+
+        
+        <br/><hr/>
+        Debug Enabled: <input type=checkbox id='debug' onChange='buildCanvas()'><br>
+      </td>
+      <td>
+        <h2>Image</h2>
+          <table border=1 cellpadding=4>
+            <tr><td>
+              <canvas id=canvas width=100 height=50></canvas>
+            </td></tr>
+          </table>
+      </td>
+    </table>
+  </body>
+</html>
