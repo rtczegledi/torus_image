@@ -6,7 +6,50 @@
 //////////////////////////////////////////////////////
 //
 // Author:      Richard Czegledi
-// Date:        March 29, 2018
+// Date:        March 31, 2018
+//
+// ID Legend:
+//  $("_canvas")    - canvas element for drawing image
+//  $("_debug")     - checkbox for enabling debug mode
+//  $("_myURL")     - URL name with parameters
+
+//  $("t1")         - title string 1
+//  $("t2")         - title string 2
+//  $("tp")         - title part (e.g. "Group A")
+//  $("tff")        - title font family
+//  $("tfb")        - title font bold selected
+//  $("tfi")        - title font italic selected 
+//  $("tfp")        - title font size
+//  $("tc")         - title colour
+//  $("tpc")        - title part colour
+
+//  $("rep")        - recipient name in center of torus
+//  $("rff")        - recipient font family
+//  $("rfb")        - recipient font bold selected
+//  $("rfi")        - recipient font italic selected
+//  $("rfp")        - recipient font size
+//  $("rc")         - recipient colour
+
+//  $("p#")         - member # (from 0)
+//  $("pff")        - member font family
+//  $("pfb")        - member font bold selected
+//  $("pfi")        - member font italic selected
+//  $("pfp")        - member font size
+//  $("pc")         - member colour
+
+//  $("m#")         - master # (from 0)
+//  $("mff")        - master font family
+//  $("mfb")        - master font bold selected
+//  $("mfi")        - master font italic selected
+//  $("mfp")        - master font size
+//  $("mc")         - master colour
+
+//  $("o")          - orientation
+//  $("tors")       - torus size in px
+//  $("torc")       - torus colour
+//  $("torpc")      - torus peg colour
+//  $("_error")     - error string
+//  $("f")          - image filename
 
 var g_Debug = false;
 
@@ -14,50 +57,70 @@ var ALIGNMENT = { LEFT:0, CENTER:1, RIGHT:2, AUTO:3 };
 
 var OBJECT_TYPE = { TITLE:0, MEMBER:1, MASTER:2, RECIPIENT:3};
 
+var g_ParameterCookieName = "parameters";
+
 // NOTE: font description MUST include the font height in 'px'.
 var g_RecipientFontDesc = { 
-    fontFamily:         "Arial",
-    fontWeight:         "bold",
-    fontStyle:          "normal",
-    fontSize:           "14px",
+    fontFamilyID:       "rff",
+    fontBoldID:         "rfb",
+    fontItalicID:       "rfi",
+    fontSizeID:         "rfp",
 
-    textColor:          "blue",
+    textColorID:        "rc",
     debugColor:         "green",
 
-    torusColor:         "purple",       // extra color attribute for torus
-    torusPegColor:      "blue",         // extra color attribute for torus peg
-    imageColor:         "white",        // extra color attribute for image
-    titleGroupColor:    "orange"        // extra color attribute to title group
+    torusColorID:       "torc",       // extra color attribute for torus
+    torusPegColorID:    "torpc",      // extra color attribute for torus peg
+    imageColor:         "white"       // extra color attribute for image
 };
 
 var g_TitleFontDesc = { 
-    fontFamily:         "Arial",
-    fontWeight:         "bold",
-    fontStyle:          "normal",
-    fontSize:           "16px",
+    fontFamilyID:       "tff",
+    fontBoldID:         "tfb",
+    fontItalicID:       "tfi",
+    fontSizeID:         "tfp",
 
-    textColor:          "Navy",
+    textColorID:        "tc",
+    titleGroupColorID:  "tpc",        // extra color attribute to title group
     debugColor:         "green"
 };
 
 var g_MemberFontDesc = { 
-    fontFamily:         "Arial",
-    fontWeight:         "bold",
-    fontStyle:          "normal",
-    fontSize:           "14px",
+    fontFamilyID:       "pff",
+    fontBoldID:         "pfb",
+    fontItalicID:       "pfi",
+    fontSizeID:         "pfp",
 
-    textColor:          "black",
+    textColorID:        "pc",
     debugColor:         "green"
 };
 
 var g_MasterFontDesc = { 
-    fontFamily:         "Arial",
-    fontWeight:         "bold",
-    fontStyle:          "italic",
-    fontSize:           "14px",
+    fontFamilyID:       "mff",
+    fontBoldID:         "mfb",
+    fontItalicID:       "mfi",
+    fontSizeID:         "mfp",
 
-    textColor:          "red",
+    textColorID:        "mc",
     debugColor:         "green"
+};
+
+var g_ElementDefaults = {
+                        // Font Family          bold?           italic?           Font Size       Text Color
+    /* Title */         tff:"Arial",            tfb:"true",     tfi:"false",      tfp:"16px",     tc:"3605FF",       
+    /* Recipient */     rff:"Arial",            rfb:"true",     rfi:"false",      rfp:"14px",     rc:"14811E",
+    /* Member */        pff:"Arial",            pfb:"true",     pfi:"false",      pfp:"14px",     pc:"000000",
+    /* Master */        mff:"Arial",            mfb:"true",     mfi:"false",      mfp:"14px",     mc:"000000",
+
+    t1:"Group Torus",   // Title 1 string
+
+    tors:"100",         // torus size
+    tpc:"FF15C8",       // title group color
+
+    torc:"000000",      // torus color
+    torpc:"FF0000",     // torus peg color
+    pc:"000000",        // member color
+    mc:"FF0000"         // master color
 };
 
 var g_MastersList = [
@@ -101,21 +164,20 @@ var g_MastersList = [
     "Astrea",                       "Cassiopea",            "Peace",
     "Aloha",                        "Arcturus",             "Victoria",
     "Elohim of the 8th ray" ];
-    
+
 
 // Object to define origin within canvas.
 var g_Origin = {
     // Center X,Y coordinates of center circle.
-    imageWidth:                 600,
-    imageHeight:                600,
+    imageWidth:                 800,
+    imageHeight:                800,
 
-    imageCenterX:               300,            // imageWidth/2
-    imageCenterY:               300,            // imageHeight/2
+    imageCenterX:               400,            // imageWidth/2
+    imageCenterY:               400,            // imageHeight/2
 
     torusRingSize:              100,            // initial size of torus ring
     torusRingWidth:             3,              // px for the torus ring
-    torusRingSpacing:           6,              // px spacign abound torus ring
-    torusRingMemberSpacing:     9,              // px spacing from torus ring to member names
+    torusRingSpacing:           6,              // px spacing abound torus ring
     torusRingMasterSpacing:     75,             // px spacing from torus ring to master names
 
     torusRingPegSize:           6,              // px size of pegs on torus ring
@@ -129,8 +191,7 @@ var g_Origin = {
 
     titleSpacing:               20,             // px spacing from title to any member/master name
 
-    maxMembers:                 10,             // maximum number of members supported
-
+    maxMembers:                 12,             // maximum number of members supported
 
 
     absXY : function( relX, relY ) {
@@ -154,9 +215,104 @@ var g_Origin = {
     } 
 };
 
+
+var g_DetectedFonts = {};
 var g_Title = [];
 var g_Members = [];
 var g_ObjectArray = [];
+
+
+
+function resetGlobals() {
+    g_Title = [];
+    g_Members = [];
+    g_ObjectArray = [];
+    g_Origin.resetImageCenter();
+}
+/**
+ * JavaScript code to detect available availability of a
+ * particular font in a browser using JavaScript and CSS.
+ *
+ * Author : Lalit Patel
+ * Website: http://www.lalit.org/lab/javascript-css-font-detect/
+ * License: Apache Software License 2.0
+ *          http://www.apache.org/licenses/LICENSE-2.0
+ * Version: 0.15 (21 Sep 2009)
+ *          Changed comparision font to default from sans-default-default,
+ *          as in FF3.0 font of child element didn't fallback
+ *          to parent element if the font is missing.
+ * Version: 0.2 (04 Mar 2012)
+ *          Comparing font against all the 3 generic font families ie,
+ *          'monospace', 'sans-serif' and 'sans'. If it doesn't match all 3
+ *          then that font is 100% not available in the system
+ * Version: 0.3 (24 Mar 2012)
+ *          Replaced sans with serif in the list of baseFonts
+ */
+/**
+ * Usage: d = new Detector();
+ *        d.detect('font name');
+ */
+var Detector = function() {
+    // a font will be compared against all the three default fonts.
+    // and if it doesn't match all 3 then that font is not available.
+    var baseFonts = ['monospace', 'sans-serif', 'serif'];
+
+    //we use m or w because these two characters take up the maximum width.
+    // And we use a LLi so that the same matching fonts can get separated
+    var testString = "mmmmmmmmmmlli";
+
+    //we test using 72px font size, we may use any size. I guess larger the better.
+    var testSize = '72px';
+
+    var h = document.getElementsByTagName("body")[0];
+
+    // create a SPAN in the document to get the width of the text we use to test
+    var s = document.createElement("span");
+    s.style.fontSize = testSize;
+    s.innerHTML = testString;
+    var defaultWidth = {};
+    var defaultHeight = {};
+    for (var index in baseFonts) {
+        //get the default width for the three base fonts
+        s.style.fontFamily = baseFonts[index];
+        h.appendChild(s);
+        defaultWidth[baseFonts[index]] = s.offsetWidth; //width for the default font
+        defaultHeight[baseFonts[index]] = s.offsetHeight; //height for the defualt font
+        h.removeChild(s);
+    }
+
+    function detect(font) {
+        var detected = false;
+        for (var index in baseFonts) {
+            s.style.fontFamily = font + ',' + baseFonts[index]; // name of the font along with the base font for fallback.
+            h.appendChild(s);
+            var matched = (s.offsetWidth != defaultWidth[baseFonts[index]] || s.offsetHeight != defaultHeight[baseFonts[index]]);
+            h.removeChild(s);
+            detected = detected || matched;
+        }
+        return detected;
+    }
+
+    function identifyCommonFonts() {
+        // list of 'common' fonts to search
+        var commonFonts = ["cursive", "monospace", "serif", "sans-serif", "fantasy", "default", "Arial",
+                           "Arial Black", "Arial Narrow", "Bookman Old Style", "Century",
+                           "Century Gothic", "Comic Sans MS", "Courier", "Courier New", "Georgia", "Gentium",
+                           "Impact", "King", "Lucida Console", "Lalit", "Modena", "Monotype Corsiva", "Papyrus",
+                           "Tahoma", "TeX", "Times", "Times New Roman", "Trebuchet MS", "Verdana", "Verona"];
+        var detectedFonts = [];
+
+        for( var i=0; i < commonFonts.length; ++i ) {
+            if( detect(commonFonts[i]) ) {
+                detectedFonts.push( commonFonts[i] );
+            }
+        }
+        return detectedFonts;
+    }
+
+    this.detect = detect;
+    this.identifyCommonFonts = identifyCommonFonts;
+};
 
 
 
@@ -164,21 +320,48 @@ function $(id) {
     return document.getElementById(id);
 }
 
-
 function massageName( name ) {
     var arr = [];
 
-    // TODO possibly split the name across lines
+    // Determine if the name needs to be split.
+    if( name.length >= 10 ) {
+        var mid = Math.floor( name.length / 2 );
+        var bestDistance = name.length;
+        var bestIndex = -1;
+
+        for( var i = 0; i < name.length; ++i ) {
+            var distance = Math.abs(mid-i);
+            if( name[i] == ' ' && distance < bestDistance ) {
+                bestIndex = i;
+                bestDistance = distance;
+            }
+        }
+
+        if( bestIndex >= 0 ) {
+            // Split the name into two.
+            arr.push( {text:myTrim( name.substring( 0, bestIndex ) )} );
+            arr.push( {text:myTrim( name.substring( bestIndex, name.length ) )} );
+            return arr;
+        }
+
+    }
+
     arr.push( {text:myTrim(name)} );
     return arr;
+}
+
+function colorFromID( id ) {
+    return "#" + $(id).value;
 }
 
 function createSeatingArrangement() {
     var memberAngle = g_Origin.memberStartAngle;
     var step = 360 / g_Members.length;
     var masterAngle = memberAngle - step/2;
-    var radiusStep = 5;
-    var memberRadius = g_Origin.torusRingSize + g_Origin.torusRingMemberSpacing;
+    var radiusStep = 1;
+    var memberRadius = g_Origin.torusRingSize 
+                     + g_Origin.torusRingSpacing
+                     + g_Origin.memberSpacing + 1;
     var masterRadius = g_Origin.torusRingSize + g_Origin.torusRingMasterSpacing;
     var titleRadius = masterRadius + g_Origin.titleSpacing;
     var maxRadius = g_Origin.imageCenterY;
@@ -187,8 +370,8 @@ function createSeatingArrangement() {
 
     // Create the center object.
     obj = createTextObject( OBJECT_TYPE.RECIPIENT,
-                            massageName( $("recipient").value ),
-                            $("canvas"), 
+                            massageName( $("rep").value ),
+                            $("_canvas"), 
                             g_RecipientFontDesc, 
                             ALIGNMENT.CENTER, 
                             g_Origin, 
@@ -202,7 +385,7 @@ function createSeatingArrangement() {
     for( var i = 0; i < g_Members.length; ++i ) {
         obj = createTextObject( OBJECT_TYPE.MEMBER,
                                 massageName( g_Members[i].member ),
-                                $("canvas"), 
+                                $("_canvas"), 
                                 g_MemberFontDesc, 
                                 ALIGNMENT.AUTO, 
                                 g_Origin, 
@@ -232,7 +415,7 @@ function createSeatingArrangement() {
         if( g_Members[i].master !== "" ) {
             obj = createTextObject( OBJECT_TYPE.MASTER,
                                     massageName( g_Members[i].master ),
-                                    $("canvas"), 
+                                    $("_canvas"), 
                                     g_MasterFontDesc, 
                                     ALIGNMENT.AUTO, 
                                     g_Origin, 
@@ -240,37 +423,38 @@ function createSeatingArrangement() {
                                     masterAngle,
                                     g_Origin.masterSpacing );
             g_ObjectArray.push( obj );
-        }
-        masterAngle += step;
 
-        // Attempt to place the master.
-        for( var r = masterRadius; r < maxRadius; r += radiusStep ) {
-            obj.setRadius( r );
-            result = testOverlap();
-            if( result == null ) {
-                break;
+            // Attempt to place the master.
+            for( var r = masterRadius; r < maxRadius; r += radiusStep ) {
+                obj.setRadius( r );
+                result = testOverlap();
+                if( result == null ) {
+                    break;
+                }
+            }
+
+            if( result != null ) {
+                // Return the master placement error.
+                return result;
             }
         }
-
-        if( result != null ) {
-            // Return the master placement error.
-            return result;
-        }
+        masterAngle += step;
     }
 
     // Create the title object.
     var title = [];
     for( var i = 0; i < g_Title.length; ++i ) {
-        title.push( {text:myTrim(g_Title[i])} );
+        title.push( {text:myTrim(g_Title[i]),
+                     color:colorFromID(g_TitleFontDesc.textColorID)} );
     }
-    if( $("title_group").value !== "" ) {
-        title.push( {text:myTrim($("title_group").value), 
-                     color:g_RecipientFontDesc.titleGroupColor } );
+    if( $("tp").value !== "" ) {
+        title.push( {text:myTrim($("tp").value), 
+                     color:colorFromID(g_TitleFontDesc.titleGroupColorID)} );
     }
 
     obj = createTextObject( OBJECT_TYPE.TITLE,
                             title,
-                            $("canvas"), 
+                            $("_canvas"), 
                             g_TitleFontDesc, 
                             ALIGNMENT.CENTER, 
                             g_Origin, 
@@ -296,19 +480,19 @@ function drawSeatingArrangement() {
     var     minY = maxY = g_Origin.imageCenterY;
 
     // Restore the canvas to configured dimensions.
-    $("canvas").width = g_Origin.imageWidth;
-    $("canvas").height = g_Origin.imageHeight;
+    $("_canvas").width = g_Origin.imageWidth;
+    $("_canvas").height = g_Origin.imageHeight;
     
     // Compute the image dimensions for cropping.
     if( g_ObjectArray.length > 0 ) {
         var obj = g_ObjectArray[0];
-        var maxRadius = obj.origin.torusRingWidth + obj.spacing;
+        var maxRadius = obj.origin.torusRingSize + obj.spacing;
 
         minX = Math.min( minX, obj.centerX() - maxRadius );
         maxX = Math.max( maxX, obj.centerX() + maxRadius );
 
         minY = Math.min( minY, obj.centerY() - maxRadius );
-        maxY = Math.min( maxY, obj.centerY() + maxRadius );
+        maxY = Math.max( maxY, obj.centerY() + maxRadius );
 
         for( var i = 0; i < g_ObjectArray.length; ++i ) {
             var obj = g_ObjectArray[i];
@@ -330,9 +514,9 @@ function drawSeatingArrangement() {
     // Resize and fill the canvas
     var newWidth = maxX-minX;
     var newHeight = maxY-minY;
-    $("canvas").width = newWidth;
-    $("canvas").height = newHeight;
-    var context = $("canvas").getContext("2d");
+    $("_canvas").width = newWidth;
+    $("_canvas").height = newHeight;
+    var context = $("_canvas").getContext("2d");
     context.fillStyle = g_RecipientFontDesc.imageColor;
     context.fillRect( 0, 0, newWidth, newHeight );
     
@@ -348,23 +532,22 @@ function drawSeatingArrangement() {
 
         if( i == 0 ) {
             // Draw the torus
-            obj.drawCircle( obj.fontDesc.torusColor, obj.origin.torusRingWidth, 0 );
+            obj.drawCircle( colorFromID(obj.fontDesc.torusColorID), 
+                            obj.origin.torusRingWidth, 0 );
 
             // Draw the pegs
             for( var j = 0; j < g_ObjectArray.length; ++j ) {
                 var pegObj = g_ObjectArray[j];
 
                 if( pegObj.objectType == OBJECT_TYPE.MEMBER ) {
-                    var theta = pegObj.angle * Math.PI / 180;
-                    var torusRadius = obj.boundingRadius;
-                    var pegX = obj.origin.imageCenterX + torusRadius * Math.cos( theta );
-                    var pegY = obj.origin.imageCenterY + torusRadius * Math.sin( theta );
+                    var peg = pegObj.origin.polarToAbsXY( obj.boundingRadius, pegObj.angle );
 
-                    context.strokeStyle = obj.origin.torusPegColor;
+                    var colour = colorFromID(g_RecipientFontDesc.torusPegColorID);
+                    context.strokeStyle = colour;
                     context.lineWidth = 1;
                     context.beginPath();
-                    context.arc( pegX, pegY, obj.origin.torusRingPegSize, 0, 2*Math.PI );
-                    context.fillStyle = obj.origin.torusPegColor;
+                    context.arc( peg.x, peg.y, obj.origin.torusRingPegSize, 0, 2*Math.PI );
+                    context.fillStyle = colour;
                     context.fill();
                     context.closePath();
                     context.stroke();
@@ -385,25 +568,18 @@ function drawSeatingArrangement() {
     }
 }
 
-function resetGlobals() {
-    g_Title = [];
-    g_Members = [];
-    g_ObjectArray = [];
-    g_Origin.resetImageCenter();
-}
-
 function buildCanvas() {
     resetGlobals();
-    g_Debug = $("debug").checked;
+    g_Debug = $("_debug").checked;
 
     g_RecipientFontDesc.imageColor = g_Debug ? "yellow" : "white";
 
-    if( $("title_1").value !== "" )   g_Title.push( $("title_1").value );
-    if( $("title_2").value !== "" )   g_Title.push( $("title_2").value );
+    if( $("t1").value !== "" )   g_Title.push( $("t1").value );
+    if( $("t2").value !== "" )   g_Title.push( $("t2").value );
 
     for( var i = 0; i < g_Origin.maxMembers; ++i ) {
-        var member = $("member" + i).value;
-        var master = $("master" + i).value;
+        var member = $("p" + i).value;
+        var master = $("m" + i).value;
 
         if( member !== "" ) {
             g_Members.push( {member:member, master:master} );
@@ -412,14 +588,20 @@ function buildCanvas() {
 
     setDefaultFilename();
 
-    g_Origin.memberStartAngle = parseInt( $("orientation").value );
+    g_Origin.memberStartAngle = parseInt( $("o").value );
+    g_Origin.torusRingSize = parseInt( $("tors").value );
+    if( g_Origin.torusRingSize < 100 || g_Origin.torusRingSize > 300 ) {
+        g_Origin.torusRingSize = 100;
+    }
     var result = createSeatingArrangement();
     if( result == null ) {
-        $("error").innerHTML = "";
+        $("_error").innerHTML = "";
         drawSeatingArrangement();
     } else {
-        $("error").innerHTML = result;
+        $("_error").innerHTML = result;
     }
+
+    composeMyURL();
 }
 
 function testOverlap() {
@@ -477,10 +659,10 @@ function createTextObject( objectType,
     obj.angle = angle % 360;
     obj.spacing = spacing;
 
-    obj.font = fontDesc.fontStyle + " "
-             + fontDesc.fontWeight + " " 
-             + fontDesc.fontSize + " " 
-             + fontDesc.fontFamily;
+    obj.font = ($(fontDesc.fontItalicID).checked ? "italic" : "normal") + " "     // font style
+             + ($(fontDesc.fontBoldID).checked ? "bold" : "normal") + " "         // font weight
+             + $(fontDesc.fontSizeID).value + " " 
+             + $(fontDesc.fontFamilyID).value;
     obj.context = obj.canvas.getContext("2d");
     obj.context.font = obj.font;
 
@@ -494,7 +676,7 @@ function createTextObject( objectType,
         if( width > maxWidth ) maxWidth = width;
     }
 
-    obj.fontHeight = parseInt(fontDesc.fontSize);   // e.g. "14px"
+    obj.fontHeight = parseInt($(fontDesc.fontSizeID).value);   // e.g. "14px"
     obj.boundingWidth = maxWidth;
     obj.boundingHeight = obj.fontHeight * textArray.length;
 
@@ -502,9 +684,47 @@ function createTextObject( objectType,
     obj.boxCenterY = Math.round( obj.boundingHeight / 2 );
     obj.boundingRadius = distance( 0, 0, obj.boxCenterX, obj.boxCenterY );
 
+    obj.adjustX = 0;
+    obj.adjustY = 0;
+
+    if( obj.objectType == OBJECT_TYPE.MEMBER ) {
+        // Some fine placement is necessary for the member elements that
+        //  immediately orbit the ring so that the member text is adjacent
+        //  to the peg.
+        var peg = obj.origin.polarToAbsXY( obj.origin.torusRingSize + obj.origin.torusRingPegSize,
+                                           obj.angle ); 
+        var center = obj.origin.polarToAbsXY( obj.radius, obj.angle );
+        var top = center.y - obj.boxCenterY - obj.spacing;
+        var bottom = top + obj.boundingHeight + obj.spacing;
+        var left = center.x - obj.boxCenterX - obj.spacing;
+        var right = left + obj.boundingWidth + obj.spacing;
+
+        if( obj.angle == 0 || obj.angle == 90 || obj.angle == 180 || obj.angle == 270 ) {
+            // this center is already correct
+        } else if( obj.angle < 90 ) {
+            // adjust to top left corner
+            obj.adjustX = peg.x - left;
+            obj.adjustY = peg.y - top;
+        } else if( obj.angle < 180 ) {
+            // adjust to top right corner
+            obj.adjustX = peg.x - right;
+            obj.adjustY = peg.y - top;
+        } else if( obj.angle < 270 ) {
+            // adjust to bottom right corner
+            obj.adjustX = peg.x - right;
+            obj.adjustY = peg.y - bottom;
+        } else {
+            // adjust to bottom left corner
+            obj.adjustX = peg.x - left;
+            obj.adjustY = peg.y - bottom;
+        }
+    }
 
     obj.toAbsXY = function() {
-        return obj.origin.polarToAbsXY( this.radius, this.angle );
+        var coord = this.origin.polarToAbsXY( this.radius, this.angle );
+        coord.x += this.adjustX;
+        coord.y += this.adjustY;
+        return coord;
     };
 
     obj.centerX = function() {
@@ -576,7 +796,7 @@ function createTextObject( objectType,
                     x = center.x;
                 }
             }
-            this.context.fillStyle = this.line[i].color || this.fontDesc.textColor;
+            this.context.fillStyle = this.line[i].color || colorFromID(this.fontDesc.textColorID);
             this.context.font = this.font;
             this.context.fillText( this.line[i].text, x, y );
             y = y + this.fontHeight;
@@ -621,21 +841,45 @@ function createTextObject( objectType,
             && (obj.top()-obj.spacing    <= this.bottom()+this.spacing);
     };
 
-    obj.pointInCircle = function( x, y ) {
-        var dist = distance( this.centerX(), this.centerY(), x, y );
-        return dist < this.boundingRadius + this.spacing;
-    }
+    obj.distanceToXY = function( x, y ) {
+        return distance( this.centerX(), this.centerY(), x, y );
+    };
 
     obj.intersectsCircle = function( obj ) {
         var left = this.left()-this.spacing;
         var top = this.top()-this.spacing;
         var right = this.right()+this.spacing;
         var bottom = this.bottom()+this.spacing;
+        var minRadius = obj.boundingRadius + this.spacing;
+        var objCenterX = obj.centerX();
+        var objCenterY = obj.centerY();
 
-        return obj.pointInCircle( left, top )
-            || obj.pointInCircle( right, top )
-            || obj.pointInCircle( right, bottom )
-            || obj.pointInCircle( left, bottom );
+        // Check if any of the bounding corners (plus spacing) fall within
+        //  the object's circle.
+        if( obj.distanceToXY( left, top ) < minRadius
+         || obj.distanceToXY( right, top ) < minRadius
+         || obj.distanceToXY( right, bottom ) < minRadius
+         || obj.distanceToXY( left, bottom ) < minRadius ) {
+            return true;
+        }
+
+        // Check if the top/bottom of the bounding box intersects with
+        //  the object's circle.
+        if( left < objCenterX && right > objCenterX 
+         && (Math.abs( top-objCenterY ) < minRadius
+             || Math.abs( bottom-objCenterY ) < minRadius) ) {
+            return true;
+        }
+
+        // Check if the left/right of the bounding box intersects with
+        //  the object's circle.
+        if( top < objCenterY && bottom > objCenterY
+         && (Math.abs( left-objCenterX ) < minRadius
+             || Math.abs( right-objCenterX ) < minRadius) ) {
+            return true;
+        }
+
+        return false;
     };
 
     return obj;
@@ -680,21 +924,170 @@ function setDefaultFilename() {
 
     // NOTE: This may be a bit annoying to create the default filename based on the group title.
     //       We'll see how it goes.
-    $("imageName").value = $("title_1").value + " - " + 
-                         shortMonthNames[day.getMonth()] + " " + day.getDate() + ", " + day.getFullYear() + ".png";
+    $("f").value = $("t1").value + " - " + 
+                   shortMonthNames[day.getMonth()] + " " + day.getDate() + ", " + day.getFullYear() + ".png";
 
 }
 
+function createFontSelectionElements( parentID, fontDesc ) {
+    var fontWeights = [ "normal", "bold" ];
+    var fontSizes = [ "10px", "12px", "14px", "16px", "18px" ];
+
+    var fontStyles = [ "normal", "italic" ];
+
+    // font family selection
+    var element = document.createElement( "span" );
+    var str = "<select name=fontFamily id='" + fontDesc.fontFamilyID + "' onchange='buildCanvas()'>\n";
+    for( var i = 0; i < g_DetectedFonts.length; ++i ) {
+        str += "<option value='" + g_DetectedFonts[i] + "'";
+        str += ">" + g_DetectedFonts[i] + "</option>\n";
+    }
+    str += "</select> ";
+    element.innerHTML = str;
+    $(parentID).appendChild( element );
+
+    // font size selection
+    element = document.createElement( "span" );
+    var str = "<select name=fontSize id='" + fontDesc.fontSizeID + "' onchange='buildCanvas()'>\n";
+    for( var i = 0; i < fontSizes.length; ++i ) {
+        str += "<option value='" + fontSizes[i] + "'";
+        str += ">" + fontSizes[i] + "</option>\n";
+    }
+    str += "</select> ";
+    element.innerHTML = str;
+    $(parentID).appendChild( element );
+
+    // font bold selection
+    element = document.createElement( "span" );
+    str = "<B>Bold</B><input type=checkbox id='" + fontDesc.fontBoldID + "' onchange='buildCanvas()'>\n";
+    element.innerHTML = str;
+    $(parentID).appendChild( element );
+
+    // font italic selection
+    element = document.createElement( "span" );
+    str = "<I>Italic</I><input type=checkbox id='" + fontDesc.fontItalicID + "' onchange='buildCanvas()'>\n";
+    element.innerHTML = str;
+    $(parentID).appendChild( element );
+}
+
+function initializeElementsFromHash( hash ) {
+    var all = document.getElementsByTagName("*");
+    for( var i = 0; i < all.length; ++i ) {
+        var el = all[i];
+        if( hash[el.id] != undefined ) {
+            var defaultValue = hash[el.id];
+
+            if( el.nodeName === "SELECT" ) {
+                el.value = defaultValue;
+            } else if( el.nodeName === "INPUT" ) {
+                if( el.type.toLowerCase() === "checkbox" ) {
+                    el.checked = (defaultValue === "true");
+                } else if( el.type.toLowerCase()==="select-one" ) {
+                    el.value = defaultValue;
+                } else if( el.type.toLowerCase()==="text") {
+                    el.value = defaultValue;
+
+                    // For jscolor class elements, update the text box background color.
+                    if( el.className === "jscolor" ) {
+                        // jscolor class element
+                        el.jscolor.importColor();
+                    }
+                }
+            }
+        }
+    }
+}
+
+function setParametersFromUrl( url ) {
+    var u = new Url( url );
+
+    initializeElementsFromHash( u.query );
+}
+
+function getUrlWithParameters() {
+    var url = new Url();
+    var all = document.getElementsByTagName("*");
+    var hash = g_ElementDefaults;
+
+    url.clearQuery();   // remove all query string parameters
+    for( var i = 0; i < all.length; ++i ) {
+        var el = all[i];
+
+        if( hash[el.id] != undefined ) {
+            var defaultValue = hash[el.id];
+
+            if( el.nodeName === "SELECT" ) {
+                if( el.value !== defaultValue ) {
+                    url.query[el.id] = el.value;
+                }
+            } else if( el.nodeName === "INPUT" ) {
+                if( el.type.toLowerCase() === "checkbox" ) {
+                    if( el.checked != defaultValue ) {
+                        url.query[el.id] = el.checked;
+                    }
+                } else if( el.type.toLowerCase()==="select-one"
+                        || el.type.toLowerCase()==="text" ) {
+                    if( el.value !== defaultValue ) {
+                        url.query[el.id] = el.value;
+                    }
+                }
+            }
+        }
+    }
+    return url;
+}
+
+function composeMyURL() {
+    var url = getUrlWithParameters();
+    $("_myURL").innerHTML = "<b>" + url + "</b>";
+
+    // Save the URL as a cookie for later retrieval.
+    setCookie( g_ParameterCookieName, url.toString() );
+}
+
+function setCookie( name, value, days ) {
+    var expires = "";
+    if (days) {
+        var date = new Date();
+        date.setTime(date.getTime() + (days*24*60*60*1000));
+        expires = "; expires=" + date.toUTCString();
+    }
+    document.cookie = name + "=" + (value || "")  + expires + "; path=/";
+}
+
+function getCookie( name ) {
+    var nameEQ = name + "=";
+    var ca = document.cookie.split(';');
+    for(var i=0;i < ca.length;i++) {
+        var c = ca[i];
+        while (c.charAt(0)==' ') c = c.substring(1,c.length);
+        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+    }
+    return null;
+}
+
+function eraseCookie( name ) {   
+    document.cookie = name+'=; Max-Age=-99999999;';  
+}
+
 function pageSetup() {
+    // Determine what fonts are supported.
+    g_DetectedFonts = (new Detector()).identifyCommonFonts();
+
     // Update the canvas to configured dimensions.
-    $("canvas").width = g_Origin.imageWidth;
-    $("canvas").height = g_Origin.imageHeight;
+    $("_canvas").width = g_Origin.imageWidth;
+    $("_canvas").height = g_Origin.imageHeight;
+
+    createFontSelectionElements( "titleProperties", g_TitleFontDesc );
+    createFontSelectionElements( "recipientProperties", g_RecipientFontDesc );
+    createFontSelectionElements( "memberProperties", g_MemberFontDesc );
+    createFontSelectionElements( "masterProperties", g_MasterFontDesc );
 
     // Create the Members/Masters forms.
     for( var i = 0; i < g_Origin.maxMembers; ++i ) {
        var element = document.createElement( "div" );
-       var str = "Member <input type='text' name='member' id='member" + i + "' onChange='buildCanvas()'/>" +
-                 " works with <select name=masters id='master" + i + "' onChange='buildCanvas()'>\n";
+       var str = "Member <input type='text' name='member' id='p" + i + "' onChange='buildCanvas()'/>" +
+                 " works with <select name=masters id='m" + i + "' onChange='buildCanvas()'>\n";
 
        g_MastersList.sort();
        for( var j = 0; j < g_MastersList.length; ++j ) {
@@ -708,30 +1101,27 @@ function pageSetup() {
     }
 
     // Populate the date in the title.
-    $("title_2").value = getDateString() + "    Duration: 20 min";
+    $("t2").value = getDateString() + "    Duration: 20 min";
 
     // Update the "Download image" anchor element to download the canvas as a PNG file.
     var dl = $("downloadLink");
     dl.addEventListener( "click", 
                          function() { 
                              this.href = canvas.toDataURL("image/png");
-                             var name = $("imageName").value;
+                             var name = $("f").value;
                              if( name === "" ) name = "image.png";
                              this.download = name;
                          }, 
                          false );
 
-    /**** test data
-    $("recipient").value = "testing";
-    $("member0").value = "Sheri";
-    $("member1").value = "Richard";
-    $("member2").value = "Andrew";
-    $("member3").value = "Brad";
-    $("master0").options[1].selected = true;
-    $("master1").options[2].selected = true;
-    $("master2").options[3].selected = true;
-    $("master3").options[4].selected = true;
-    */
+    // Set default element values
+    initializeElementsFromHash( g_ElementDefaults );
+
+    // Set element values from the cookie
+    setParametersFromUrl( getCookie(g_ParameterCookieName) );
+
+    // Set element values from URL parameters
+    setParametersFromUrl( window.location.href );
 
     buildCanvas();
 }
@@ -742,20 +1132,31 @@ function pageSetup() {
   </script>
 </head>
   <body onLoad=pageSetup()>
-    <table border=0>
+    <script src="jscolor.min.js"></script>
+    <script src="jsurl.js"></script>
+    <table border=1>
       <tr>
         <td>
         <h2>Group Torus Title</h2>
-        <input type='text' name='title_1' id='title_1' size='40' value='Group Torus' onChange='buildCanvas()'/><br>
-        <input type='text' name='title_2' id='title_2' size='40' value='Duration: 20 min' onChange='buildCanvas()'/><br>
-        part (optional) <input type='text' name='title_group' id='title_group' size='20' value='' onChange='buildCanvas()'/><br>
-
-        <h2>Recipient (optional)</h2>
-        <input type='text' name='recipient' id='recipient' size='40' value='' onChange='buildCanvas()'/><br>
+        Title 1: <input type='text' name='t1' id='t1' size='40' value='' onChange='buildCanvas()'/><br>
+        Title 2: <input type='text' name='t2' id='t2' size='40' value='Duration: 20 min' onChange='buildCanvas()'/><br>
+        part (optional) <input type='text' name='tp' id='tp' size='20' value='' onChange='buildCanvas()'/>
+            <input class="jscolor" id='tpc' value="000000" size='4' onchange='buildCanvas()'> <br>
+        Font <span id='titleProperties'></span>
+            <input class="jscolor" id='tc' value="000000" size='4' onchange='buildCanvas()'><br>
 
         <h2>Members / Masters</h2>
+        <i><b>Members are added to the torus in a clockwise order. <br></b></i>
+        <div id="members"></div>
+
+        <p id="_error"></p>
+
+        Member font <span id='memberProperties'></span>
+            <input class="jscolor" id='pc' value="000000" size='4' onchange='buildCanvas()'> <br>
+        Master font <span id='masterProperties'></span>
+            <input class="jscolor" id='mc' value="000000" size='4' onchange='buildCanvas()'> <br>
         Orientation for first member is
-        <select name=orientation id=orientation onChange='buildCanvas()'>
+        <select name=orientation id=o onChange='buildCanvas()'>
             <option value=270>North</option>
             <option value=315>Northeast</option>
             <option value=0>East</option>
@@ -765,29 +1166,51 @@ function pageSetup() {
             <option value=180>West</option>
             <option value=225>Northwest</option>
         </select>
+        <div/>
         <br/>
-        <i><b>Members are added to the torus in a clockwise order.  Be careful to
-            ensure that masters are assigned when necessary.</b></i>
-        <br/>
+        <table border=0>
+          <tr>
+            <td>Torus colour:</td>
+            <td><input class="jscolor" id='torc' value="000000" size='4' onchange='buildCanvas()'></td>
+          </tr><tr>
+            <td>Torus peg colour:</td>
+            <td><input class="jscolor" id='torpc' value="000000" size='4' onchange='buildCanvas()'></td>
+          </tr><tr>
+            <td>Torus size:</td>
+            <td>
+              <select name=torusSize id='tors' onChange='buildCanvas()'>
+                <option value=100>100px</option>
+                <option value=110>110px</option>
+                <option value=120>120px</option>
+                <option value=130>130px</option>
+                <option value=140>140px</option>
+                <option value=150>150px</option>
+              </select>
+            </td>
+          </tr>
+        </table>
 
-        <div id="members"></div>
-
-        <p id="error"></p>
-        <a id="downloadLink" href="#image">Download</a> image as filename
-        <input type='text' name="name" id="imageName" value="download.png" size="70"/>
-
-        
-        <br/><hr/>
-        Debug Enabled: <input type=checkbox id='debug' onChange='buildCanvas()'><br>
+        <h2>Recipient (optional)</h2>
+        Recipient: <input type='text' name='rep' id='rep' size='40' value='' onChange='buildCanvas()'/><br>
+        Font <span id='recipientProperties'></span>
+            <input class="jscolor" id='rc' value="000000" size='4' onchange='buildCanvas()'> <br>
       </td>
-      <td>
-        <h2>Image</h2>
+      <td valign=top>
           <table border=1 cellpadding=4>
             <tr><td>
-              <canvas id=canvas width=100 height=50></canvas>
+              <canvas id=_canvas width=100 height=50></canvas>
             </td></tr>
           </table>
       </td>
     </table>
+
+    <hr/>
+    <a id="downloadLink" href="#image">Download</a> image as filename
+    <input type='text' name="name" id="f" value="download.png" size="70"/>
+
+    
+    <br/>
+    Debug enabled: <input type=checkbox id='_debug' onChange='buildCanvas()'><br>
+    My URL: <span id='_myURL'></span>
   </body>
 </html>
